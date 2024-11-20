@@ -1,0 +1,1 @@
+~/anaconda3/envs/wu_signnow/bin/python ~/signnow/EC2/upsertUserdb.py
