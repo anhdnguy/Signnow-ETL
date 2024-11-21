@@ -6,7 +6,7 @@
         "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
         "Parameters": {
           "InstanceIds": [
-            "EC2-Instance"
+            "EC2-Instance-Id"
           ],
           "DocumentName": "AWS-RunShellScript",
           "Parameters": {
@@ -36,7 +36,7 @@
         "Resource": "arn:aws:states:::aws-sdk:ssm:getCommandInvocation",
         "Parameters": {
           "CommandId.$": "$.getUserOutput.Command.CommandId",
-          "InstanceId": "EC2-Instance"
+          "InstanceId": "EC2-Instance-Id"
         },
         "Next": "IsUserCommandFinished"
       },
@@ -108,7 +108,7 @@
                 "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
                 "Parameters": {
                   "InstanceIds": [
-                    "EC2-Instance"
+                    "EC2-Instance-Id"
                   ],
                   "DocumentName": "AWS-RunShellScript",
                   "Parameters": {
@@ -130,7 +130,7 @@
                 "Resource": "arn:aws:states:::aws-sdk:ssm:getCommandInvocation",
                 "Parameters": {
                   "CommandId.$": "$.UpsertOutput.Command.CommandId",
-                  "InstanceId": "EC2-Instance"
+                  "InstanceId": "EC2-Instance-Id"
                 },
                 "Next": "IsCommandFinishedupsert"
               },
@@ -168,7 +168,7 @@
                 "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
                 "Parameters": {
                   "InstanceIds": [
-                    "EC2-Instance"
+                    "EC2-Instance-Id"
                   ],
                   "DocumentName": "AWS-RunShellScript",
                   "Parameters": {
@@ -198,7 +198,7 @@
                 "Resource": "arn:aws:states:::aws-sdk:ssm:getCommandInvocation",
                 "Parameters": {
                   "CommandId.$": "$.getContractOutput.Command.CommandId",
-                  "InstanceId": "EC2-Instance"
+                  "InstanceId": "EC2-Instance-Id"
                 },
                 "Next": "IsContractCommandFinished"
               },
