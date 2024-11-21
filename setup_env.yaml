@@ -1,0 +1,22 @@
+name: wu_signnow
+channels:
+    - defaults
+    - conda-forge
+    - anaconda
+dependencies:
+    - python=3.12.4
+    - pip
+    - pandas
+    - jupyter
+    - pillow
+    - tqdm
+    - requests
+    - h5py
+    - pyyaml
+    - flask
+    - boto3
+    - ipykernel
+    - openjdk
+    - python-dotenv
+    - pip:
+        - psycopg2
