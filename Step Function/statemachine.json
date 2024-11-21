@@ -1,0 +1,339 @@
+{
+    "StartAt": "getUser",
+    "States": {
+      "getUser": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
+        "Parameters": {
+          "InstanceIds": [
+            "EC2-Instance"
+          ],
+          "DocumentName": "AWS-RunShellScript",
+          "Parameters": {
+            "commands": [
+              "runuser -l ec2-user -c 'sh ~/signnow/user_job.sh'"
+            ]
+          }
+        },
+        "ResultPath": "$.getUserOutput",
+        "Next": "WaitforGetUser",
+        "Catch": [
+          {
+            "ErrorEquals": [
+              "States.ALL"
+            ],
+            "Next": "FailWorkflow"
+          }
+        ]
+      },
+      "WaitforGetUser": {
+        "Type": "Wait",
+        "Seconds": 180,
+        "Next": "CheckUserCommandStatus"
+      },
+      "CheckUserCommandStatus": {
+        "Type": "Task",
+        "Resource": "arn:aws:states:::aws-sdk:ssm:getCommandInvocation",
+        "Parameters": {
+          "CommandId.$": "$.getUserOutput.Command.CommandId",
+          "InstanceId": "EC2-Instance"
+        },
+        "Next": "IsUserCommandFinished"
+      },
+      "IsUserCommandFinished": {
+        "Type": "Choice",
+        "Choices": [
+          {
+            "Variable": "$.Status",
+            "StringEquals": "Success",
+            "Next": "Parallel"
+          },
+          {
+            "Variable": "$.Status",
+            "StringEquals": "Failed",
+            "Next": "FailWorkflow"
+          }
+        ],
+        "Default": "CheckUserCommandStatus"
+      },
+      "Parallel": {
+        "Type": "Parallel",
+        "Next": "Success",
+        "Branches": [
+          {
+            "StartAt": "InsertDatatoTempUser",
+            "States": {
+              "InsertDatatoTempUser": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::aws-sdk:glue:startJobRun",
+                "Parameters": {
+                  "JobName": "user-job"
+                },
+                "ResultPath": "$.GlueJobOutput",
+                "Next": "WaitForGlueJob"
+              },
+              "WaitForGlueJob": {
+                "Type": "Wait",
+                "Seconds": 120,
+                "Next": "CheckGlueJobStatus"
+              },
+              "CheckGlueJobStatus": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::aws-sdk:glue:getJobRun",
+                "Parameters": {
+                  "JobName": "user-job",
+                  "RunId.$": "$.GlueJobOutput.JobRunId"
+                },
+                "ResultPath": "$.JobStatus",
+                "Next": "JobCompletionCheck"
+              },
+              "JobCompletionCheck": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.JobStatus.JobRun.JobRunState",
+                    "StringEquals": "SUCCEEDED",
+                    "Next": "UpSerttoUserTable"
+                  },
+                  {
+                    "Variable": "$.JobStatus.JobRun.JobRunState",
+                    "StringEquals": "FAILED",
+                    "Next": "FailWorkflow0"
+                  }
+                ],
+                "Default": "CheckGlueJobStatus"
+              },
+              "UpSerttoUserTable": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
+                "Parameters": {
+                  "InstanceIds": [
+                    "EC2-Instance"
+                  ],
+                  "DocumentName": "AWS-RunShellScript",
+                  "Parameters": {
+                    "commands": [
+                      "runuser -l ec2-user -c 'sh ~/signnow/upsertUserdb.sh'"
+                    ]
+                  }
+                },
+                "ResultPath": "$.UpsertOutput",
+                "Next": "WaitforUpsert"
+              },
+              "WaitforUpsert": {
+                "Type": "Wait",
+                "Seconds": 30,
+                "Next": "CheckCommandStatusforUpsert"
+              },
+              "CheckCommandStatusforUpsert": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::aws-sdk:ssm:getCommandInvocation",
+                "Parameters": {
+                  "CommandId.$": "$.UpsertOutput.Command.CommandId",
+                  "InstanceId": "EC2-Instance"
+                },
+                "Next": "IsCommandFinishedupsert"
+              },
+              "IsCommandFinishedupsert": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.Status",
+                    "StringEquals": "Success",
+                    "Next": "Success0"
+                  },
+                  {
+                    "Variable": "$.Status",
+                    "StringEquals": "Failed",
+                    "Next": "FailWorkflow0"
+                  }
+                ],
+                "Default": "CheckCommandStatusforUpsert"
+              },
+              "Success0": {
+                "Type": "Succeed"
+              },
+              "FailWorkflow0": {
+                "Type": "Fail",
+                "Cause": "An error occurred, and the workflow did not complete successfully.",
+                "ErrorPath": "$.Error"
+              }
+            }
+          },
+          {
+            "StartAt": "getContract",
+            "States": {
+              "getContract": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::aws-sdk:ssm:sendCommand",
+                "Parameters": {
+                  "InstanceIds": [
+                    "EC2-Instance"
+                  ],
+                  "DocumentName": "AWS-RunShellScript",
+                  "Parameters": {
+                    "commands": [
+                      "runuser -l ec2-user -c 'sh ~/signnow/contract_job.sh'"
+                    ]
+                  }
+                },
+                "ResultPath": "$.getContractOutput",
+                "Next": "WaitforGetContract",
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "Next": "FailWorkflow1"
+                  }
+                ]
+              },
+              "WaitforGetContract": {
+                "Type": "Wait",
+                "Seconds": 200,
+                "Next": "CheckContractCommandStatus"
+              },
+              "CheckContractCommandStatus": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::aws-sdk:ssm:getCommandInvocation",
+                "Parameters": {
+                  "CommandId.$": "$.getContractOutput.Command.CommandId",
+                  "InstanceId": "EC2-Instance"
+                },
+                "Next": "IsContractCommandFinished"
+              },
+              "IsContractCommandFinished": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.Status",
+                    "StringEquals": "Success",
+                    "Next": "CrawlDoc"
+                  },
+                  {
+                    "Variable": "$.Status",
+                    "StringEquals": "Failed",
+                    "Next": "FailWorkflow1"
+                  }
+                ],
+                "Default": "CheckContractCommandStatus"
+              },
+              "CrawlDoc": {
+                "Type": "Task",
+                "Parameters": {
+                  "Name": "document-crawler"
+                },
+                "Resource": "arn:aws:states:::aws-sdk:glue:startCrawler",
+                "Next": "Wait",
+                "ResultPath": "$.CrawlDoc",
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "Next": "FailWorkflow1"
+                  }
+                ]
+              },
+              "Wait": {
+                "Type": "Wait",
+                "Seconds": 60,
+                "Next": "GetDocCrawler"
+              },
+              "GetDocCrawler": {
+                "Type": "Task",
+                "Parameters": {
+                  "Name": "document-crawler"
+                },
+                "Resource": "arn:aws:states:::aws-sdk:glue:getCrawler",
+                "Next": "CrawlCompletionCheck"
+              },
+              "CrawlCompletionCheck": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.Crawler.State",
+                    "StringEquals": "READY",
+                    "Next": "RunDocJob"
+                  }
+                ],
+                "Default": "GetDocCrawler"
+              },
+              "RunDocJob": {
+                "Type": "Task",
+                "Resource": "arn:aws:states:::glue:startJobRun",
+                "Parameters": {
+                  "JobName": "doc-job"
+                },
+                "Catch": [
+                  {
+                    "ErrorEquals": [
+                      "States.ALL"
+                    ],
+                    "Next": "FailWorkflow1"
+                  }
+                ],
+                "Next": "WaitforDocJob",
+                "ResultPath": "$.RunDocJob"
+              },
+              "WaitforDocJob": {
+                "Type": "Wait",
+                "Seconds": 100,
+                "Next": "CheckDocJob"
+              },
+              "CheckDocJob": {
+                "Type": "Task",
+                "Parameters": {
+                  "JobName": "doc-job",
+                  "RunId.$": "$.RunDocJob.JobRunId"
+                },
+                "Resource": "arn:aws:states:::aws-sdk:glue:getJobRun",
+                "Next": "IsDocJobFinished",
+                "ResultPath": "$.DocJobStatus"
+              },
+              "IsDocJobFinished": {
+                "Type": "Choice",
+                "Choices": [
+                  {
+                    "Variable": "$.DocJobStatus.JobRun.JobRunState",
+                    "StringEquals": "SUCCEEDED",
+                    "Next": "Success1"
+                  },
+                  {
+                    "Variable": "$.DocJobStatus.JobRun.JobRunState",
+                    "StringEquals": "FAILED",
+                    "Next": "FailWorkflow1"
+                  }
+                ],
+                "Default": "CheckDocJob"
+              },
+              "Success1": {
+                "Type": "Succeed"
+              },
+              "FailWorkflow1": {
+                "Type": "Fail",
+                "Cause": "An error occurred, and the workflow did not complete successfully.",
+                "ErrorPath": "$.Error"
+              }
+            }
+          }
+        ],
+        "Catch": [
+          {
+            "ErrorEquals": [
+              "States.ALL"
+            ],
+            "Next": "FailWorkflow"
+          }
+        ]
+      },
+      "Success": {
+        "Type": "Succeed"
+      },
+      "FailWorkflow": {
+        "Type": "Fail",
+        "Cause": "An error occurred, and the workflow did not complete successfully.",
+        "ErrorPath": "$.Error"
+      }
+    }
+  }
